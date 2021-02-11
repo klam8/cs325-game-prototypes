@@ -1,203 +1,137 @@
-import "./phaser.js";
-
-// You can copy-and-paste the code from any of the examples at https://examples.phaser.io here.
-// You will need to change the `parent` parameter passed to `new Phaser.Game()` from
-// `phaser-example` to `game`, which is the id of the HTML element where we
-// want the game to go.
-// The assets (and code) can be found at: https://github.com/photonstorm/phaser3-examples
-// You will need to change the paths you pass to `this.load.image()` or any other
-// loading functions to reflect where you are putting the assets.
-// All loading functions will typically all be found inside `preload()`.
-
-// The simplest class example: https://phaser.io/examples/v3/view/scenes/scene-from-es6-class
-
-class MyScene extends Phaser.Scene {
-    
-  var stage, loader, flappy, jumpListener, pipeCreator, score, scoreText, scroeTextOutline;
-var started;
-
-function init() {
-  stage = new createjs.StageGL("gameCanvas");
-
-  createjs.Ticker.timingMode = createjs.Ticker.RAF_SYNCHED;
-  createjs.Ticker.framerate = 60;
-  createjs.Ticker.addEventListener("tick", stage);
-
-  var background = new createjs.Shape();
-  background.graphics.beginLinearGradientFill(["#2573BB", "#6CB8DA", "#567A32"], [0, 0.85, 1], 0, 0, 0, 480)
-  .drawRect(0, 0, 320, 480);
-  background.x = 0;
-  background.y = 0;
-  background.name = "background";
-  background.cache(0, 0, 320, 480);
-
-  stage.addChild(background);
-
-  var manifest = [
-    { "src": "cloud.png", "id": "cloud" },
-    { "src": "flappy.png", "id": "flappy" },
-    { "src": "pipe.png", "id": "pipe" },
-  ];
-
-  loader = new createjs.LoadQueue(true);
-  loader.addEventListener("complete", handleComplete);
-  loader.loadManifest(manifest, true, "./img/");
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style>
+canvas {
+    border:1px solid #d3d3d3;
+    background-color: #f1f1f1;
 }
+</style>
+</head>
+<body onload="startGame()">
+<script>
 
-function handleComplete() {
-  started = false;
-  createClouds();
-  createFlappy();
-  createScore();
-  jumpListener = stage.on("stagemousedown", jumpFlappy);
-  createjs.Ticker.addEventListener("tick", checkCollision);
-}
-
-function createClouds() {
-  var clouds = [];
-  for (var i = 0; i < 3; i++) {
-    clouds.push(new createjs.Bitmap(loader.getResult("cloud")));
-  }
-
-  clouds[0].x = 40;
-  clouds[0].y = 20;
-  clouds[1].x = 140;
-  clouds[1].y = 70;
-  clouds[2].x = 100;
-  clouds[2].y = 130;
-
-  for (var i = 0; i < 3; i++) {
-    var directionMultiplier = i % 2 == 0 ? -1 : 1;
-    createjs.Tween.get(clouds[i], { loop: true})
-    .to({ x: clouds[i].x - (200 * directionMultiplier)}, 3000, createjs.Ease.getPowInOut(2))
-    .to({ x: clouds[i].x }, 3000, createjs.Ease.getPowInOut(2));
-    stage.addChild(clouds[i]);
-  }
-}
-
-function createFlappy() {
-  flappy = new createjs.Bitmap(loader.getResult("flappy"));
-  flappy.regX = flappy.image.width / 2;
-  flappy.regY = flappy.image.height / 2;
-  flappy.x = stage.canvas.width / 2;
-  flappy.y = stage.canvas.height / 2;
-  stage.addChild(flappy);
-}
-
-function jumpFlappy() {
-  if (!started) {
-    startGame();
-  }
-  createjs.Tween.get(flappy, { override: true }).to({ y: flappy.y - 60, rotation: -10 }, 500, createjs.Ease.getPowOut(2))
-  .to({ y: stage.canvas.height + (flappy.image.width / 2), rotation: 30 }, 1500, createjs.Ease.getPowIn(2))
-  .call(gameOver);
-}
-
-function createPipes() {
-  var topPipe, bottomPipe;
-  var position = Math.floor(Math.random() * 280 + 100);
-
-  topPipe = new createjs.Bitmap(loader.getResult("pipe"));
-  topPipe.y = position - 75;
-  topPipe.x = stage.canvas.width + (topPipe.image.width / 2);
-  topPipe.rotation = 180;
-  topPipe.name = "pipe";
-
-  bottomPipe = new createjs.Bitmap(loader.getResult("pipe"));
-  bottomPipe.y = position + 75;
-  bottomPipe.x = stage.canvas.width + (bottomPipe.image.width / 2);
-  bottomPipe.skewY = 180;
-  bottomPipe.name = "pipe";
-
-  topPipe.regX = bottomPipe.regX = topPipe.image.width / 2;
-
-  createjs.Tween.get(topPipe).to({ x: 0 - topPipe.image.width }, 10000).call(function() { removePipe(topPipe); })
-  .addEventListener("change", updatePipe);
-  createjs.Tween.get(bottomPipe).to( { x: 0 - bottomPipe.image.width }, 10000).call(function() { removePipe(bottomPipe); });
-
-  var scoreIndex = stage.getChildIndex(scoreText);
-
-  stage.addChildAt(bottomPipe, topPipe, scoreIndex);
-}
-
-function removePipe(pipe) {
-  stage.removeChild(pipe);
-}
-
-function updatePipe(event) {
-  var pipeUpdated = event.target.target;
-  if ((pipeUpdated.x - pipeUpdated.regX + pipeUpdated.image.width) < (flappy.x - flappy.regX)) {
-    event.target.removeEventListener("change", updatePipe);
-    incrementScore();
-  }
-}
-
-function createScore() {
-  score = 0;
-  scoreText = new createjs.Text(score, "bold 48px Arial", "#FFFFFF");
-  scoreText.textAlign = "center";
-  scoreText.textBaseline = "middle";
-  scoreText.x = 40;
-  scoreText.y = 40;
-  var bounds = scoreText.getBounds();
-  scoreText.cache(-40, -40, bounds.width*3 + Math.abs(bounds.x), bounds.height + Math.abs(bounds.y));
-
-  scoreTextOutline = scoreText.clone();
-  scoreTextOutline.color = "#000000";
-  scoreTextOutline.outline = 2;
-  bounds = scoreTextOutline.getBounds();
-  scoreTextOutline.cache(-40, -40, bounds.width*3 + Math.abs(bounds.x), bounds.height + Math.abs(bounds.y));
-
-  stage.addChild(scoreText, scoreTextOutline);
-}
-
-function incrementScore() {
-  score++;
-  scoreText.text = scoreTextOutline.text = score;
-  scoreText.updateCache();
-  scoreTextOutline.updateCache();
-}
+var myGamePiece;
+var myObstacles = [];
+var myScore;
 
 function startGame() {
-  started = true;
-  createPipes();
-  pipeCreator = setInterval(createPipes, 6000);
+    myGamePiece = new component(30, 30, "red", 10, 120);
+    myGamePiece.gravity = 0.05;
+    myScore = new component("30px", "Consolas", "black", 280, 40, "text");
+    myGameArea.start();
 }
 
-function checkCollision() {
-  var leftX = flappy.x - flappy.regX + 5;
-  var leftY = flappy.y - flappy.regY + 5;
-  var points = [
-    new createjs.Point(leftX, leftY),
-    new createjs.Point(leftX + flappy.image.width - 10, leftY),
-    new createjs.Point(leftX, leftY + flappy.image.height - 10),
-    new createjs.Point(leftX + flappy.image.width - 10, leftY + flappy.image.height - 10)
-  ];
-
-  for (var i = 0; i < points.length; i++) {
-    var objects = stage.getObjectsUnderPoint(points[i].x, points[i].y);
-    if (objects.filter((object) => object.name == "pipe").length > 0) {
-      gameOver();
-      return;
+var myGameArea = {
+    canvas : document.createElement("canvas"),
+    start : function() {
+        this.canvas.width = 480;
+        this.canvas.height = 270;
+        this.context = this.canvas.getContext("2d");
+        document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+        this.frameNo = 0;
+        this.interval = setInterval(updateGameArea, 20);
+        },
+    clear : function() {
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
-  }
 }
 
-function gameOver() {
-  createjs.Tween.removeAllTweens();
-  stage.off("stagemousedown", jumpListener);
-  clearInterval(pipeCreator);
-  createjs.Ticker.removeEventListener("tick", checkCollision);
-  setTimeout(function () {
-    stage.on("stagemousedown", resetGame, null, true);
-  }, 2000);
+function component(width, height, color, x, y, type) {
+    this.type = type;
+    this.score = 0;
+    this.width = width;
+    this.height = height;
+    this.speedX = 0;
+    this.speedY = 0;    
+    this.x = x;
+    this.y = y;
+    this.gravity = 0;
+    this.gravitySpeed = 0;
+    this.update = function() {
+        ctx = myGameArea.context;
+        if (this.type == "text") {
+            ctx.font = this.width + " " + this.height;
+            ctx.fillStyle = color;
+            ctx.fillText(this.text, this.x, this.y);
+        } else {
+            ctx.fillStyle = color;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
+    }
+    this.newPos = function() {
+        this.gravitySpeed += this.gravity;
+        this.x += this.speedX;
+        this.y += this.speedY + this.gravitySpeed;
+        this.hitBottom();
+    }
+    this.hitBottom = function() {
+        var rockbottom = myGameArea.canvas.height - this.height;
+        if (this.y > rockbottom) {
+            this.y = rockbottom;
+            this.gravitySpeed = 0;
+        }
+    }
+    this.crashWith = function(otherobj) {
+        var myleft = this.x;
+        var myright = this.x + (this.width);
+        var mytop = this.y;
+        var mybottom = this.y + (this.height);
+        var otherleft = otherobj.x;
+        var otherright = otherobj.x + (otherobj.width);
+        var othertop = otherobj.y;
+        var otherbottom = otherobj.y + (otherobj.height);
+        var crash = true;
+        if ((mybottom < othertop) || (mytop > otherbottom) || (myright < otherleft) || (myleft > otherright)) {
+            crash = false;
+        }
+        return crash;
+    }
 }
 
-function resetGame() {
-  var childrenToRemove = stage.children.filter((child) => child.name != "background");
-  for (var i = 0; i < childrenToRemove.length; i++) {
-    stage.removeChild(childrenToRemove[i]);
-  }
-  handleComplete();
+function updateGameArea() {
+    var x, height, gap, minHeight, maxHeight, minGap, maxGap;
+    for (i = 0; i < myObstacles.length; i += 1) {
+        if (myGamePiece.crashWith(myObstacles[i])) {
+            return;
+        } 
+    }
+    myGameArea.clear();
+    myGameArea.frameNo += 1;
+    if (myGameArea.frameNo == 1 || everyinterval(150)) {
+        x = myGameArea.canvas.width;
+        minHeight = 20;
+        maxHeight = 200;
+        height = Math.floor(Math.random()*(maxHeight-minHeight+1)+minHeight);
+        minGap = 50;
+        maxGap = 200;
+        gap = Math.floor(Math.random()*(maxGap-minGap+1)+minGap);
+        myObstacles.push(new component(10, height, "green", x, 0));
+        myObstacles.push(new component(10, x - height - gap, "green", x, height + gap));
+    }
+    for (i = 0; i < myObstacles.length; i += 1) {
+        myObstacles[i].x += -1;
+        myObstacles[i].update();
+    }
+    myScore.text="SCORE: " + myGameArea.frameNo;
+    myScore.update();
+    myGamePiece.newPos();
+    myGamePiece.update();
 }
+
+function everyinterval(n) {
+    if ((myGameArea.frameNo / n) % 1 == 0) {return true;}
+    return false;
 }
+
+function accelerate(n) {
+    myGamePiece.gravity = n;
+}
+</script>
+<br>
+<button onmousedown="accelerate(-0.2)" onmouseup="accelerate(0.05)">ACCELERATE</button>
+<p>Use the ACCELERATE button to stay in the air</p>
+<p>How long can you stay alive?</p>
+</body>
+</html>
